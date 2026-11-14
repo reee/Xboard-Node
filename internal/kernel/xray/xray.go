@@ -34,6 +34,7 @@ import (
 	"github.com/cedar2025/xboard-node/internal/kernel/geodata"
 	"github.com/cedar2025/xboard-node/internal/nlog"
 	"github.com/cedar2025/xboard-node/internal/model"
+	"github.com/cedar2025/xboard-node/internal/speedtest"
 )
 
 const (
@@ -68,6 +69,11 @@ type Xray struct {
 	lastKernelHash  string
 	cumTraffic      map[int][2]int64
 	speedLimitFunc  func(string) *rate.Limiter
+
+	// speedtestMu guards speedtest, the built-in speedtest site backing the
+	// VLESS fallback.
+	speedtestMu sync.Mutex
+	speedtest   *speedtest.Server
 
 	// running is set after a successful Start and cleared before shutdown.
 	// Atomic so IsRunning / GetConnections never block.
@@ -118,7 +124,19 @@ func (x *Xray) Start(nodeConfig *model.NodeSpec, users []model.UserSpec, tls ker
 	// ── Phase 1: Build config (no shared state) ─────────────────────────
 	x.ensureGeoData(nodeConfig)
 
-	data, err := marshalConfig(x.cfg, nodeConfig, users, tls)
+	fallbackDest := ""
+	if fallbackEligible(x.cfg, nodeConfig) {
+		dest, err := x.ensureSpeedtest(nodeConfig)
+		if err != nil {
+			nlog.Core().Warn("xray: failed to start speedtest fallback, continuing without it", "error", err)
+		} else {
+			fallbackDest = dest
+		}
+	} else {
+		x.stopSpeedtest()
+	}
+
+	data, err := marshalConfig(x.cfg, nodeConfig, users, tls, fallbackDest)
 	if err != nil {
 		return err
 	}
@@ -199,6 +217,7 @@ func (x *Xray) Reload(nodeConfig *model.NodeSpec, users []model.UserSpec, tls ke
 // Stop gracefully shuts down the kernel, draining active connections first.
 func (x *Xray) Stop() {
 	x.running.Store(false)
+	x.stopSpeedtest()
 
 	x.mu.Lock()
 	inst := x.instance
@@ -641,8 +660,9 @@ func (x *Xray) ensureGeoData(nc *model.NodeSpec) {
 }
 
 // marshalConfig builds the xray JSON config and returns the raw bytes.
-func marshalConfig(cfg config.KernelConfig, nc *model.NodeSpec, users []model.UserSpec, tls kernel.TLSCert) ([]byte, error) {
-	cfgMap := buildConfig(cfg, nc, users, tls)
+// fallbackDest is the speedtest socket for the VLESS fallback (empty = none).
+func marshalConfig(cfg config.KernelConfig, nc *model.NodeSpec, users []model.UserSpec, tls kernel.TLSCert, fallbackDest string) ([]byte, error) {
+	cfgMap := buildConfig(cfg, nc, users, tls, fallbackDest)
 	data, err := json.MarshalIndent(cfgMap, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("marshal config: %w", err)

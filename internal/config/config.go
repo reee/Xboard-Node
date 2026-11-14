@@ -15,6 +15,7 @@ import (
 	"sync"
 
 	"github.com/cedar2025/xboard-node/internal/nlog"
+	"github.com/cedar2025/xboard-node/internal/speedtest"
 	"golang.org/x/term"
 	"gopkg.in/yaml.v3"
 )
@@ -144,7 +145,22 @@ type KernelConfig struct {
 	// customization of dns, outbounds, endpoints, route, experimental, etc.
 	// Compatible with V2bX OriginalPath format.
 	CustomConfig string `yaml:"custom_config"`
+
+	// Fallback configures the VLESS fallback / built-in speedtest site.
+	Fallback FallbackConfig `yaml:"fallback"`
 }
+
+// FallbackConfig configures VLESS fallback handling. When enabled, traffic
+// that is not valid VLESS is forwarded to the built-in speedtest site over a
+// Unix domain socket.
+type FallbackConfig struct {
+	Enabled       *bool  `yaml:"enabled,omitempty"` // nil/true = enabled; false = disabled
+	Title         string `yaml:"title,omitempty"`
+	MaxTransferMB int    `yaml:"max_transfer_mb,omitempty"`
+	MaxConcurrent int    `yaml:"max_concurrent,omitempty"`
+}
+
+func (f FallbackConfig) IsEnabled() bool { return f.Enabled == nil || *f.Enabled }
 
 type CertConfig struct {
 	AutoTLS  bool   `yaml:"auto_tls"`
@@ -515,6 +531,19 @@ func (c *Config) inheritFrom(parent *Config) {
 	if len(c.Kernel.CustomRoute) == 0 {
 		c.Kernel.CustomRoute = parent.Kernel.CustomRoute
 	}
+	// Kernel fallback (Enabled stays nil when neither side sets it — nil = default enabled)
+	if c.Kernel.Fallback.Enabled == nil {
+		c.Kernel.Fallback.Enabled = parent.Kernel.Fallback.Enabled
+	}
+	if c.Kernel.Fallback.Title == "" {
+		c.Kernel.Fallback.Title = parent.Kernel.Fallback.Title
+	}
+	if c.Kernel.Fallback.MaxTransferMB == 0 {
+		c.Kernel.Fallback.MaxTransferMB = parent.Kernel.Fallback.MaxTransferMB
+	}
+	if c.Kernel.Fallback.MaxConcurrent == 0 {
+		c.Kernel.Fallback.MaxConcurrent = parent.Kernel.Fallback.MaxConcurrent
+	}
 	// Cert (NOT cert_dir — derived from config_dir later)
 	if c.Cert.CertMode == "" {
 		c.Cert.CertMode = parent.Cert.CertMode
@@ -576,6 +605,17 @@ func (c *Config) setDefaultsFrom(baseDir string) {
 	}
 	if c.Kernel.LogLevel == "" {
 		c.Kernel.LogLevel = "warn"
+	}
+	// VLESS fallback / built-in speedtest defaults. Enabled is intentionally
+	// left nil when unset — nil means enabled (see FallbackConfig.IsEnabled).
+	if c.Kernel.Fallback.Title == "" {
+		c.Kernel.Fallback.Title = speedtest.DefaultTitle
+	}
+	if c.Kernel.Fallback.MaxTransferMB == 0 {
+		c.Kernel.Fallback.MaxTransferMB = speedtest.DefaultMaxTransferMB
+	}
+	if c.Kernel.Fallback.MaxConcurrent == 0 {
+		c.Kernel.Fallback.MaxConcurrent = speedtest.DefaultMaxConcurrent
 	}
 	if c.Log.Level == "" {
 		c.Log.Level = "info"
@@ -738,6 +778,12 @@ func (c *Config) validate() error {
 	}
 	if c.Node.PullInterval < 0 {
 		return fmt.Errorf("node.pull_interval must not be negative")
+	}
+	if c.Kernel.Fallback.MaxTransferMB < 0 {
+		return fmt.Errorf("kernel.fallback.max_transfer_mb must not be negative")
+	}
+	if c.Kernel.Fallback.MaxConcurrent < 0 {
+		return fmt.Errorf("kernel.fallback.max_concurrent must not be negative")
 	}
 	return nil
 }

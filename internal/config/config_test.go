@@ -570,3 +570,162 @@ func TestInheritFrom_AutoTLSInheritedWhenChildHasNoCertConfig(t *testing.T) {
 		t.Error("auto_tls should be inherited when child has no cert config")
 	}
 }
+
+func TestLoad_FallbackDefaults(t *testing.T) {
+	path := writeTemp(t, `
+panel:
+  url: "https://panel.example.com"
+  token: "tok"
+  node_id: 1
+`)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !cfg.Kernel.Fallback.IsEnabled() {
+		t.Error("fallback should be enabled by default")
+	}
+	if cfg.Kernel.Fallback.Enabled != nil {
+		t.Errorf("fallback.enabled should stay nil by default, got %v", *cfg.Kernel.Fallback.Enabled)
+	}
+	if cfg.Kernel.Fallback.Title != "Speed Test" {
+		t.Errorf("default fallback title: got %q, want %q", cfg.Kernel.Fallback.Title, "Speed Test")
+	}
+	if cfg.Kernel.Fallback.MaxTransferMB != 256 {
+		t.Errorf("default fallback max_transfer_mb: got %d, want 256", cfg.Kernel.Fallback.MaxTransferMB)
+	}
+	if cfg.Kernel.Fallback.MaxConcurrent != 32 {
+		t.Errorf("default fallback max_concurrent: got %d, want 32", cfg.Kernel.Fallback.MaxConcurrent)
+	}
+}
+
+func TestLoad_FallbackDisabledExplicitly(t *testing.T) {
+	path := writeTemp(t, `
+panel:
+  url: "https://panel.example.com"
+  token: "tok"
+  node_id: 1
+kernel:
+  fallback:
+    enabled: false
+`)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Kernel.Fallback.IsEnabled() {
+		t.Error("fallback should be disabled when enabled: false")
+	}
+}
+
+func TestLoad_FallbackCustom(t *testing.T) {
+	path := writeTemp(t, `
+panel:
+  url: "https://panel.example.com"
+  token: "tok"
+  node_id: 1
+kernel:
+  fallback:
+    enabled: true
+    title: "My Speed Test"
+    max_transfer_mb: 1024
+    max_concurrent: 8
+`)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !cfg.Kernel.Fallback.IsEnabled() {
+		t.Error("fallback should be enabled")
+	}
+	if cfg.Kernel.Fallback.Title != "My Speed Test" {
+		t.Errorf("fallback title: got %q", cfg.Kernel.Fallback.Title)
+	}
+	if cfg.Kernel.Fallback.MaxTransferMB != 1024 {
+		t.Errorf("fallback max_transfer_mb: got %d, want 1024", cfg.Kernel.Fallback.MaxTransferMB)
+	}
+	if cfg.Kernel.Fallback.MaxConcurrent != 8 {
+		t.Errorf("fallback max_concurrent: got %d, want 8", cfg.Kernel.Fallback.MaxConcurrent)
+	}
+}
+
+func TestLoad_FallbackNegativeValues(t *testing.T) {
+	for _, tc := range []struct{ name, yaml string }{
+		{"max_transfer_mb", "    max_transfer_mb: -1\n"},
+		{"max_concurrent", "    max_concurrent: -1\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := writeTemp(t, `
+panel:
+  url: "https://panel.example.com"
+  token: "tok"
+  node_id: 1
+kernel:
+  fallback:
+`+tc.yaml)
+			_, err := Load(path)
+			if err == nil {
+				t.Fatalf("expected error for negative kernel.fallback.%s", tc.name)
+			}
+		})
+	}
+}
+
+func TestLoadRoot_FallbackInheritance(t *testing.T) {
+	path := writeTemp(t, `
+kernel:
+  fallback:
+    enabled: false
+    title: "Parent Speed"
+    max_transfer_mb: 100
+    max_concurrent: 4
+instances:
+  - panel:
+      url: "https://panel-a.example.com"
+      token: "tok-a"
+      node_id: 1
+  - panel:
+      url: "https://panel-b.example.com"
+      token: "tok-b"
+      node_id: 2
+    kernel:
+      fallback:
+        enabled: true
+        title: "Instance Speed"
+`)
+	root, err := LoadRoot(path)
+	if err != nil {
+		t.Fatalf("LoadRoot: %v", err)
+	}
+	if len(root.Instances) != 2 {
+		t.Fatalf("instances: got %d, want 2", len(root.Instances))
+	}
+	// Instance 0 inherits the parent fallback as-is.
+	inst0 := root.Instances[0].Kernel.Fallback
+	if inst0.IsEnabled() {
+		t.Error("inst0 fallback should inherit enabled=false from parent")
+	}
+	if inst0.Title != "Parent Speed" {
+		t.Errorf("inst0 fallback title: got %q, want %q", inst0.Title, "Parent Speed")
+	}
+	if inst0.MaxTransferMB != 100 {
+		t.Errorf("inst0 fallback max_transfer_mb: got %d, want 100", inst0.MaxTransferMB)
+	}
+	if inst0.MaxConcurrent != 4 {
+		t.Errorf("inst0 fallback max_concurrent: got %d, want 4", inst0.MaxConcurrent)
+	}
+	// Instance 1 overrides enabled and title, inherits the limits.
+	inst1 := root.Instances[1].Kernel.Fallback
+	if !inst1.IsEnabled() {
+		t.Error("inst1 fallback should be enabled (instance override)")
+	}
+	if inst1.Title != "Instance Speed" {
+		t.Errorf("inst1 fallback title: got %q, want %q", inst1.Title, "Instance Speed")
+	}
+	if inst1.MaxTransferMB != 100 {
+		t.Errorf("inst1 fallback max_transfer_mb: got %d, want 100", inst1.MaxTransferMB)
+	}
+	if inst1.MaxConcurrent != 4 {
+		t.Errorf("inst1 fallback max_concurrent: got %d, want 4", inst1.MaxConcurrent)
+	}
+}

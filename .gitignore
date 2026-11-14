@@ -9,6 +9,7 @@ config.yml
 # IDE
 .idea/
 .vscode/
+.zcode/
 *.swp
 *.swo
 

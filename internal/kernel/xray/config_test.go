@@ -49,7 +49,7 @@ func TestBuildConfig_OutboundPriority(t *testing.T) {
 		},
 	}
 
-	cfg := buildConfig(kcfg, testNodeSpec(nc), testUsers, kernel.TLSCert{})
+	cfg := buildConfig(kcfg, testNodeSpec(nc), testUsers, kernel.TLSCert{}, "")
 	outbounds := cfg["outbounds"].([]M)
 
 	// Since we overrode both 'direct' and 'block', the result should contain
@@ -164,7 +164,7 @@ func TestBuildConfig_AllProtocols_ValidJSON(t *testing.T) {
 
 	for _, tc := range protocols {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg := buildConfig(testKernelCfg, testNodeSpec(&tc.nc), testUsers, kernel.TLSCert{CertPEM: []byte("CERT"), KeyPEM: []byte("KEY")})
+			cfg := buildConfig(testKernelCfg, testNodeSpec(&tc.nc), testUsers, kernel.TLSCert{CertPEM: []byte("CERT"), KeyPEM: []byte("KEY")}, "")
 
 			data, err := json.Marshal(cfg)
 			if err != nil {
@@ -197,7 +197,7 @@ func TestBuildConfig_VMess_Users(t *testing.T) {
 		Protocol:   "vmess",
 		ServerPort: 10086,
 	}
-	cfg := buildConfig(testKernelCfg, testNodeSpec(&nc), testUsers, kernel.TLSCert{})
+	cfg := buildConfig(testKernelCfg, testNodeSpec(&nc), testUsers, kernel.TLSCert{}, "")
 	data, _ := json.Marshal(cfg)
 
 	var parsed map[string]interface{}
@@ -237,7 +237,7 @@ func TestBuildConfig_VLESS_Flow(t *testing.T) {
 			"server_name": "example.com",
 		},
 	}
-	cfg := buildConfig(testKernelCfg, testNodeSpec(&nc), testUsers, kernel.TLSCert{})
+	cfg := buildConfig(testKernelCfg, testNodeSpec(&nc), testUsers, kernel.TLSCert{}, "")
 	data, _ := json.Marshal(cfg)
 
 	var parsed map[string]interface{}
@@ -256,6 +256,46 @@ func TestBuildConfig_VLESS_Flow(t *testing.T) {
 	ss := ib["streamSettings"].(map[string]interface{})
 	if ss["security"] != "reality" {
 		t.Errorf("expected security reality, got %v", ss["security"])
+	}
+}
+
+func TestBuildConfig_VLESSFallback(t *testing.T) {
+	nc := panel.NodeConfig{
+		Protocol:   "vless",
+		ServerPort: 443,
+	}
+	cfg := buildConfig(testKernelCfg, testNodeSpec(&nc), testUsers, kernel.TLSCert{}, "@xboard-node-1-abc")
+
+	inbounds := cfg["inbounds"].([]M)
+	settings := inbounds[0]["settings"].(M)
+
+	fbs, ok := settings["fallbacks"].([]M)
+	if !ok || len(fbs) != 1 {
+		t.Fatalf("expected 1 fallback, got %v", settings["fallbacks"])
+	}
+	if fbs[0]["type"] != "unix" {
+		t.Errorf("fallback type: got %v, want unix", fbs[0]["type"])
+	}
+	if fbs[0]["dest"] != "@xboard-node-1-abc" {
+		t.Errorf("fallback dest: got %v, want @xboard-node-1-abc", fbs[0]["dest"])
+	}
+	if fbs[0]["xver"] != 1 {
+		t.Errorf("fallback xver: got %v, want 1", fbs[0]["xver"])
+	}
+}
+
+func TestBuildConfig_VLESSNoFallback(t *testing.T) {
+	nc := panel.NodeConfig{
+		Protocol:   "vless",
+		ServerPort: 443,
+	}
+	cfg := buildConfig(testKernelCfg, testNodeSpec(&nc), testUsers, kernel.TLSCert{}, "")
+
+	inbounds := cfg["inbounds"].([]M)
+	settings := inbounds[0]["settings"].(M)
+
+	if _, ok := settings["fallbacks"]; ok {
+		t.Errorf("settings should not contain fallbacks when dest is empty: %v", settings["fallbacks"])
 	}
 }
 
@@ -409,7 +449,7 @@ func TestBuildConfig_StatsEnabled(t *testing.T) {
 		Protocol:   "vmess",
 		ServerPort: 10086,
 	}
-	cfg := buildConfig(testKernelCfg, testNodeSpec(&nc), testUsers, kernel.TLSCert{})
+	cfg := buildConfig(testKernelCfg, testNodeSpec(&nc), testUsers, kernel.TLSCert{}, "")
 	data, _ := json.Marshal(cfg)
 
 	var parsed map[string]interface{}
@@ -439,7 +479,7 @@ func TestBuildConfig_Shadowsocks_MultiUserTraditional(t *testing.T) {
 		ServerPort: 8388,
 		Cipher:     "aes-128-gcm",
 	}
-	cfg := buildConfig(testKernelCfg, testNodeSpec(&nc), testUsers, kernel.TLSCert{})
+	cfg := buildConfig(testKernelCfg, testNodeSpec(&nc), testUsers, kernel.TLSCert{}, "")
 	data, _ := json.Marshal(cfg)
 
 	var parsed map[string]interface{}
@@ -472,7 +512,7 @@ func TestBuildConfig_Shadowsocks_MultiUser(t *testing.T) {
 		Cipher:     "2022-blake3-aes-128-gcm",
 		ServerKey:  "server-key",
 	}
-	cfg := buildConfig(testKernelCfg, testNodeSpec(&nc), testUsers, kernel.TLSCert{})
+	cfg := buildConfig(testKernelCfg, testNodeSpec(&nc), testUsers, kernel.TLSCert{}, "")
 	data, _ := json.Marshal(cfg)
 
 	var parsed map[string]interface{}
@@ -496,7 +536,7 @@ func TestBuildConfig_SocksStats(t *testing.T) {
 		Protocol:   "socks",
 		ServerPort: 1080,
 	}
-	cfg := buildConfig(testKernelCfg, testNodeSpec(&nc), testUsers, kernel.TLSCert{})
+	cfg := buildConfig(testKernelCfg, testNodeSpec(&nc), testUsers, kernel.TLSCert{}, "")
 	data, _ := json.Marshal(cfg)
 
 	var parsed map[string]interface{}

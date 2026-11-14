@@ -16,7 +16,7 @@ import (
 // M is a shorthand for building JSON-like maps
 type M = map[string]interface{}
 
-func buildConfig(kcfg config.KernelConfig, nc *model.NodeSpec, users []model.UserSpec, tc kernel.TLSCert) M {
+func buildConfig(kcfg config.KernelConfig, nc *model.NodeSpec, users []model.UserSpec, tc kernel.TLSCert, fallbackDest string) M {
 	var outbounds []M
 	tags := make(map[string]bool)
 
@@ -68,7 +68,7 @@ func buildConfig(kcfg config.KernelConfig, nc *model.NodeSpec, users []model.Use
 		"outbounds": outbounds,
 	}
 
-	inbound := buildInbound(nc, users, tc)
+	inbound := buildInbound(nc, users, tc, fallbackDest)
 	if inbound != nil {
 		cfg["inbounds"] = []M{inbound}
 	} else {
@@ -197,7 +197,7 @@ func xrayLogLevel(level string) string {
 	}
 }
 
-func buildInbound(nc *model.NodeSpec, users []model.UserSpec, tc kernel.TLSCert) M {
+func buildInbound(nc *model.NodeSpec, users []model.UserSpec, tc kernel.TLSCert, fallbackDest string) M {
 	listenAddr := "::"
 	if nc.ListenIP != "" {
 		listenAddr = nc.ListenIP
@@ -218,7 +218,7 @@ func buildInbound(nc *model.NodeSpec, users []model.UserSpec, tc kernel.TLSCert)
 	case "vmess":
 		return buildVMess(base, nc, users, tc)
 	case "vless":
-		return buildVLESS(base, nc, users, tc)
+		return buildVLESS(base, nc, users, tc, fallbackDest)
 	case "trojan":
 		return buildTrojan(base, nc, users, tc)
 	case "shadowsocks":
@@ -255,7 +255,7 @@ func buildVMess(base M, nc *model.NodeSpec, users []model.UserSpec, tc kernel.TL
 	return base
 }
 
-func buildVLESS(base M, nc *model.NodeSpec, users []model.UserSpec, tc kernel.TLSCert) M {
+func buildVLESS(base M, nc *model.NodeSpec, users []model.UserSpec, tc kernel.TLSCert, fallbackDest string) M {
 	clients := make([]M, 0, len(users))
 	for _, u := range users {
 		client := M{
@@ -271,10 +271,21 @@ func buildVLESS(base M, nc *model.NodeSpec, users []model.UserSpec, tc kernel.TL
 	if nc.Decryption != "" {
 		decryption = nc.Decryption
 	}
-	base["settings"] = M{
+	settings := M{
 		"clients":    clients,
 		"decryption": decryption,
 	}
+	if fallbackDest != "" {
+		// Non-VLESS traffic is forwarded to the built-in speedtest site over a
+		// Unix domain socket; xver:1 prepends a PROXY protocol v1 header so the
+		// server sees the real client IP.
+		settings["fallbacks"] = []M{{
+			"type": "unix",
+			"dest": fallbackDest,
+			"xver": 1,
+		}}
+	}
+	base["settings"] = settings
 
 	applyStreamSettings(base, nc, tc)
 	return base

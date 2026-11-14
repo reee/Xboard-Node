@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, sans-serif;
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  main { width: 100%; max-width: 640px; padding: 2rem 1rem; }
+  h1 { font-size: 1.4rem; margin-bottom: 1.5rem; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
+  .card {
+    border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    text-align: center;
+  }
+  .label { font-size: 0.8rem; opacity: 0.7; }
+  .value { font-size: 1.8rem; font-weight: 600; margin: 0.25rem 0; }
+  .unit { font-size: 0.75rem; opacity: 0.6; }
+  button {
+    margin-top: 1.25rem;
+    padding: 0.6rem 1.5rem;
+    font-size: 1rem;
+    border-radius: 0.4rem;
+    border: 1px solid currentColor;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.5; cursor: wait; }
+  #status { min-height: 1.2em; opacity: 0.8; }
+  #status.error { color: #c0392b; }
+</style>
+</head>
+<body>
+<main>
+  <h1>{{TITLE}}</h1>
+  <div class="grid">
+    <div class="card">
+      <div class="label">Latency</div>
+      <div class="value" id="latency">-</div>
+      <div class="unit">ms</div>
+    </div>
+    <div class="card">
+      <div class="label">Download</div>
+      <div class="value" id="download">-</div>
+      <div class="unit">Mbps</div>
+    </div>
+    <div class="card">
+      <div class="label">Upload</div>
+      <div class="value" id="upload">-</div>
+      <div class="unit">Mbps</div>
+    </div>
+  </div>
+  <button id="run">Run test</button>
+  <p id="status"></p>
+</main>
+<script>
+"use strict";
+const CHUNK = 4 * 1024 * 1024;
+const DURATION_MS = 10000;
+
+function set(name, text) {
+  document.getElementById(name).textContent = text;
+}
+
+function status(text, isError) {
+  const el = document.getElementById("status");
+  el.textContent = text;
+  el.className = isError ? "error" : "";
+}
+
+async function measurePing() {
+  let total = 0;
+  for (let i = 0; i < 5; i++) {
+    const t0 = performance.now();
+    const res = await fetch("/api/ping", { cache: "no-store" });
+    await res.arrayBuffer();
+    if (!res.ok) throw new Error("ping failed: HTTP " + res.status);
+    total += performance.now() - t0;
+  }
+  return total / 5;
+}
+
+async function measureDownload() {
+  let bytes = 0;
+  const t0 = performance.now();
+  while (performance.now() - t0 < DURATION_MS) {
+    const res = await fetch("/api/download?bytes=" + CHUNK, { cache: "no-store" });
+    if (!res.ok) throw new Error("download failed: HTTP " + res.status);
+    const reader = res.body.getReader();
+    for (;;) {
+      const item = await reader.read();
+      if (item.done) break;
+      bytes += item.value.length;
+    }
+  }
+  const secs = (performance.now() - t0) / 1000;
+  return bytes * 8 / secs / 1e6;
+}
+
+function randomPayload() {
+  const buf = new Uint8Array(CHUNK);
+  for (let off = 0; off < CHUNK; off += 65536) {
+    crypto.getRandomValues(buf.subarray(off, Math.min(off + 65536, CHUNK)));
+  }
+  return buf;
+}
+
+async function measureUpload(payload) {
+  let bytes = 0;
+  const t0 = performance.now();
+  while (performance.now() - t0 < DURATION_MS) {
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: payload,
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error("upload failed: HTTP " + res.status);
+    await res.arrayBuffer();
+    bytes += payload.length;
+  }
+  const secs = (performance.now() - t0) / 1000;
+  return bytes * 8 / secs / 1e6;
+}
+
+async function run() {
+  const btn = document.getElementById("run");
+  btn.disabled = true;
+  set("latency", "-");
+  set("download", "-");
+  set("upload", "-");
+  try {
+    status("Measuring latency...");
+    set("latency", (await measurePing()).toFixed(1));
+
+    status("Measuring download...");
+    set("download", (await measureDownload()).toFixed(1));
+
+    status("Measuring upload...");
+    set("upload", (await measureUpload(randomPayload())).toFixed(1));
+
+    status("Done.");
+  } catch (err) {
+    status("Error: " + err.message, true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+document.getElementById("run").addEventListener("click", run);
+</script>
+</body>
+</html>

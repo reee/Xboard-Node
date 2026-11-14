@@ -7,6 +7,16 @@
 #   token: "your-api-key"
 #   node_id: 1
 
+# ── VLESS fallback / built-in speedtest ──
+# Applies to VLESS + TCP nodes; non-VLESS traffic is forwarded to a built-in
+# speedtest site over a Unix domain socket. Set enabled: false to opt out.
+# kernel:
+#   fallback:
+#     enabled: true
+#     title: "Speed Test"
+#     max_transfer_mb: 256
+#     max_concurrent: 32
+
 # ── Multiple instances ──
 # xray is the only supported kernel; kernel.type is deprecated and ignored.
 # log:
