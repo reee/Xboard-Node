@@ -85,6 +85,7 @@ func Start(cfg Config, socket string) (*Server, error) {
 	mux.HandleFunc("GET /{$}", s.handleIndex)
 	mux.HandleFunc("GET /api/ping", s.handlePing)
 	mux.HandleFunc("GET /api/ip", s.handleIP)
+	mux.HandleFunc("GET /api/info", s.handleInfo)
 	mux.HandleFunc("GET /api/download", s.handleDownload)
 	mux.HandleFunc("POST /api/upload", s.handleUpload)
 
@@ -154,6 +155,66 @@ func (s *Server) handleIP(w http.ResponseWriter, r *http.Request) {
 		host = r.RemoteAddr
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ip": host})
+}
+
+func (s *Server) handleInfo(w http.ResponseWriter, r *http.Request) {
+	ip, ipVersion := clientIP(addrString(r.RemoteAddr))
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ip":        ip,
+		"ipVersion": ipVersion,
+		"userAgent": sanitizeUA(r.UserAgent()),
+		"httpProto": r.Proto,
+	})
+}
+
+// addrString adapts an address string (such as http.Request.RemoteAddr) to
+// net.Addr so clientIP works on request strings as well as connection addrs.
+type addrString string
+
+func (a addrString) Network() string { return "" }
+func (a addrString) String() string  { return string(a) }
+
+// clientIP returns the host part of addr (without the port; the whole address
+// when it has no port component) and its IP version: 4, 6, or 0 when the host
+// is not a parseable IP. Non-IP hosts (such as Unix socket names) return an
+// empty host so they are never displayed as an address.
+func clientIP(addr net.Addr) (string, int) {
+	if addr == nil {
+		return "", 0
+	}
+	host, _, err := net.SplitHostPort(addr.String())
+	if err != nil {
+		host = addr.String()
+	}
+	ip := net.ParseIP(host)
+	switch {
+	case ip == nil:
+		return "", 0
+	case ip.To4() != nil:
+		return host, 4
+	default:
+		return host, 6
+	}
+}
+
+// maxUAChars bounds the User-Agent string reported by /api/info.
+const maxUAChars = 300
+
+// sanitizeUA replaces control characters with spaces, collapses consecutive
+// whitespace, and truncates the result to maxUAChars runes.
+func sanitizeUA(ua string) string {
+	cleaned := strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return ' '
+		}
+		return r
+	}, ua)
+	cleaned = strings.Join(strings.Fields(cleaned), " ")
+	if runes := []rune(cleaned); len(runes) > maxUAChars {
+		cleaned = string(runes[:maxUAChars])
+	}
+	return cleaned
 }
 
 func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {

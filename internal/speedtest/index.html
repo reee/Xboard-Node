@@ -6,27 +6,76 @@
 <title>{{TITLE}}</title>
 <style>
   :root { color-scheme: light dark; }
+  html { background: Canvas; }
   body {
     margin: 0;
     font-family: system-ui, -apple-system, sans-serif;
     display: flex;
     justify-content: center;
     min-height: 100vh;
+    color: CanvasText;
   }
   main { width: 100%; max-width: 640px; padding: 2rem 1rem; }
-  h1 { font-size: 1.4rem; margin-bottom: 1.5rem; }
-  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
+  .brand {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.25em;
+    opacity: 0.65;
+    margin-bottom: 0.75rem;
+  }
+  h1 { font-size: 1.4rem; margin: 0 0 1.25rem; }
+  .notice { font-size: 0.75rem; opacity: 0.6; margin: 0 0 1rem; }
   .card {
     border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
     border-radius: 0.5rem;
-    padding: 1rem;
-    text-align: center;
   }
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    padding: 0.5rem 1rem;
+  }
+  .row + .row { border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent); }
   .label { font-size: 0.8rem; opacity: 0.7; }
-  .value { font-size: 1.8rem; font-weight: 600; margin: 0.25rem 0; }
+  .value-row { display: flex; align-items: baseline; gap: 0.5rem; min-width: 0; margin-left: auto; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  #ip { overflow-wrap: anywhere; }
+  .badge {
+    font-size: 0.65rem;
+    opacity: 0.75;
+    border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+    border-radius: 0.25rem;
+    padding: 0.05rem 0.35rem;
+  }
+  .copy {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 0.3rem;
+    border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+  }
+  details { width: 100%; }
+  summary { font-size: 0.8rem; opacity: 0.7; cursor: pointer; }
+  #ua {
+    display: block;
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-top: 0.75rem; }
+  @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+  .stat { text-align: center; padding: 1rem; }
+  .stat .num { font-size: 1.8rem; font-weight: 600; margin: 0.25rem 0; }
   .unit { font-size: 0.75rem; opacity: 0.6; }
-  button {
-    margin-top: 1.25rem;
+  .actions { display: flex; align-items: center; gap: 0.75rem; margin-top: 1.25rem; }
+  #run {
     padding: 0.6rem 1.5rem;
     font-size: 1rem;
     border-radius: 0.4rem;
@@ -35,48 +84,181 @@
     color: inherit;
     cursor: pointer;
   }
-  button:disabled { opacity: 0.5; cursor: wait; }
-  #status { min-height: 1.2em; opacity: 0.8; }
-  #status.error { color: #c0392b; }
+  #run:disabled { opacity: 0.5; cursor: wait; }
+  #status {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.75rem;
+    border-radius: 1rem;
+    border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  }
+  #status.idle { opacity: 0.6; }
+    #status.running { color: light-dark(#b26a00, #f5b942); }
+    #status.done { color: light-dark(#187a33, #4ade80); }
+    #status.error { color: light-dark(#c0392b, #ff6b5e); }
+  footer { margin-top: 2rem; font-size: 0.75rem; opacity: 0.6; }
 </style>
 </head>
 <body>
 <main>
+  <span class="brand">ENP2S</span>
   <h1>{{TITLE}}</h1>
+  <noscript><p class="notice">Connection details and the speed test require JavaScript.</p></noscript>
+
+  <section class="card" aria-label="Connection">
+    <div class="row">
+      <span class="label">IP</span>
+      <span class="value-row">
+        <span class="mono" id="ip">-</span>
+        <span class="badge" id="ipver"></span>
+        <button class="copy" id="copy">Copy</button>
+      </span>
+    </div>
+    <div class="row">
+      <span class="label">Browser</span>
+      <span class="value-row"><span id="browser">-</span></span>
+    </div>
+    <div class="row">
+      <span class="label">Protocol</span>
+      <span class="value-row"><span class="mono" id="proto">-</span></span>
+    </div>
+    <div class="row">
+      <details>
+        <summary>User-Agent</summary>
+        <span class="mono" id="ua">-</span>
+      </details>
+    </div>
+  </section>
+
   <div class="grid">
-    <div class="card">
+    <div class="card stat">
       <div class="label">Latency</div>
-      <div class="value" id="latency">-</div>
+      <div class="num mono" id="latency">-</div>
       <div class="unit">ms</div>
     </div>
-    <div class="card">
+    <div class="card stat">
       <div class="label">Download</div>
-      <div class="value" id="download">-</div>
+      <div class="num mono" id="download">-</div>
       <div class="unit">Mbps</div>
     </div>
-    <div class="card">
+    <div class="card stat">
       <div class="label">Upload</div>
-      <div class="value" id="upload">-</div>
+      <div class="num mono" id="upload">-</div>
       <div class="unit">Mbps</div>
     </div>
   </div>
-  <button id="run">Run test</button>
-  <p id="status"></p>
+
+  <div class="actions">
+    <button id="run">Run test</button>
+    <span id="status" class="idle">Idle</span>
+  </div>
+
+  <footer>© 2026 ENP2S. All rights reserved.</footer>
 </main>
 <script>
 "use strict";
 const CHUNK = 4 * 1024 * 1024;
 const DURATION_MS = 10000;
 
-function set(name, text) {
-  document.getElementById(name).textContent = text;
+function set(id, text) {
+  document.getElementById(id).textContent = text;
 }
 
-function status(text, isError) {
+function status(state, text) {
   const el = document.getElementById("status");
   el.textContent = text;
-  el.className = isError ? "error" : "";
+  el.className = state;
 }
+
+// parseUA renders the server-observed User-Agent as e.g. "Chrome 141 · macOS".
+function parseUA(ua) {
+  if (!ua) return "Unknown";
+  let browser = "";
+    let m = ua.match(/(?:Edge|Edg|EdgA|EdgiOS)\/(\d+)/);
+    if (m) browser = "Edge " + m[1];
+    if (!browser) {
+      m = ua.match(/(?:Firefox|FxiOS)\/(\d+)/);
+      if (m) browser = "Firefox " + m[1];
+    }
+    if (!browser) {
+      m = ua.match(/(?:Chrome|CriOS)\/(\d+)/);
+      if (m) browser = "Chrome " + m[1];
+    }
+  if (!browser && /Safari\//.test(ua)) {
+    m = ua.match(/Version\/(\d+)/);
+    if (m) browser = "Safari " + m[1];
+  }
+  let os = "";
+  if ((m = ua.match(/Android (\d+)(?:[._](\d+))?/))) {
+    os = "Android " + m[1] + (m[2] ? "." + m[2] : "");
+  } else if ((m = ua.match(/(?:iPhone|iPad|iPod).*?OS (\d+)[._](\d+)/))) {
+    os = "iOS " + m[1] + "." + m[2];
+  } else if ((m = ua.match(/Windows NT ([\d.]+)/))) {
+    const names = { "5.1": "XP", "6.0": "Vista", "6.1": "7", "6.2": "8", "6.3": "8.1", "10.0": "10" };
+    os = names[m[1]] ? "Windows " + names[m[1]] : "Windows";
+  } else if (/Mac OS X/.test(ua)) {
+    os = "macOS";
+  } else if (/X11|Linux/.test(ua)) {
+    os = "Linux";
+  }
+  const parts = [];
+  if (browser) parts.push(browser);
+  if (os) parts.push(os);
+  return parts.length ? parts.join(" · ") : "Unknown";
+}
+
+async function loadInfo() {
+  try {
+    const res = await fetch("/api/info", { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const info = await res.json();
+    set("ip", info.ip || "-");
+    set("ipver", info.ipVersion === 4 ? "v4" : info.ipVersion === 6 ? "v6" : "");
+    set("browser", parseUA(info.userAgent));
+    set("proto", info.httpProto || "-");
+    set("ua", info.userAgent || "-");
+  } catch (err) {
+    set("ip", "-");
+    set("ipver", "");
+    set("browser", "-");
+    set("proto", "-");
+    set("ua", "-");
+  }
+}
+
+async function copyIP() {
+  const btn = document.getElementById("copy");
+  const text = document.getElementById("ip").textContent;
+  if (!text || text === "-") return;
+  let ok = false;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      ok = true;
+    } catch (err) {
+      // fall back to execCommand below
+    }
+  }
+  if (!ok) {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+    } catch (err) {
+      ok = false;
+    }
+  }
+  btn.textContent = ok ? "Copied" : "Failed";
+  btn.title = ok ? "" : "Copying to the clipboard is not available in this browser.";
+  setTimeout(() => { btn.textContent = "Copy"; }, 1200);
+}
+
+document.getElementById("copy").addEventListener("click", copyIP);
 
 async function measurePing() {
   let total = 0;
@@ -139,24 +321,25 @@ async function run() {
   set("download", "-");
   set("upload", "-");
   try {
-    status("Measuring latency...");
+    status("running", "Measuring latency...");
     set("latency", (await measurePing()).toFixed(1));
 
-    status("Measuring download...");
+    status("running", "Measuring download...");
     set("download", (await measureDownload()).toFixed(1));
 
-    status("Measuring upload...");
+    status("running", "Measuring upload...");
     set("upload", (await measureUpload(randomPayload())).toFixed(1));
 
-    status("Done.");
+    status("done", "Done.");
   } catch (err) {
-    status("Error: " + err.message, true);
+    status("error", "Error: " + err.message);
   } finally {
     btn.disabled = false;
   }
 }
 
 document.getElementById("run").addEventListener("click", run);
+loadInfo();
 </script>
 </body>
 </html>

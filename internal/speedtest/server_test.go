@@ -82,6 +82,94 @@ func TestIndex(t *testing.T) {
 	if strings.Contains(string(body), "{{TITLE}}") {
 		t.Fatalf("body still contains {{TITLE}} placeholder")
 	}
+	if !strings.Contains(string(body), "ENP2S") {
+		t.Fatalf("body does not contain brand ENP2S")
+	}
+	if !strings.Contains(string(body), "© 2026") {
+		t.Fatalf("body does not contain copyright notice")
+	}
+}
+
+func TestInfoEndpoint(t *testing.T) {
+	s := startTestServer(t, Config{}, testSocket())
+	resp, err := testClient(s.Socket()).Get("http://unix/api/info")
+	if err != nil {
+		t.Fatalf("GET /api/info: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	if ct := resp.Header.Get("Content-Type"); ct != "application/json" {
+		t.Fatalf("content-type = %q, want application/json", ct)
+	}
+	if cc := resp.Header.Get("Cache-Control"); cc != "no-store" {
+		t.Errorf("cache-control = %q, want no-store", cc)
+	}
+	var v map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&v); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	for _, key := range []string{"ip", "ipVersion", "userAgent", "httpProto"} {
+		if _, ok := v[key]; !ok {
+			t.Errorf("missing field %q in %v", key, v)
+		}
+	}
+	if got, want := v["httpProto"], resp.Proto; got != want {
+		t.Errorf("httpProto = %v, want %q", got, want)
+	}
+	if ua, _ := v["userAgent"].(string); ua == "" {
+		t.Errorf("userAgent = %q, want non-empty", ua)
+	}
+}
+
+func TestSanitizeUA(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"", ""},
+		{"Mozilla/5.0 (X11; Linux x86_64)", "Mozilla/5.0 (X11; Linux x86_64)"},
+		{"a\x00b\x01c\x1fd\x7fe", "a b c d e"},
+		{"Chrome\t\t141\n\nMacOS", "Chrome 141 MacOS"},
+		{"  leading and trailing  ", "leading and trailing"},
+		{strings.Repeat("a", 400), strings.Repeat("a", 300)},
+	}
+	for _, tc := range cases {
+		if got := sanitizeUA(tc.in); got != tc.want {
+			t.Errorf("sanitizeUA(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+
+	// Truncation counts runes, not bytes.
+	got := sanitizeUA(strings.Repeat("あ", 400))
+	if len([]rune(got)) != 300 {
+		t.Errorf("rune length = %d, want 300", len([]rune(got)))
+	}
+	if got != strings.Repeat("あ", 300) {
+		t.Errorf("rune truncation = %q, want 300 intact runes", got)
+	}
+}
+
+func TestClientIP(t *testing.T) {
+	unixAddr := &net.UnixAddr{Name: "@/xboard-speedtest", Net: "unix"}
+	cases := []struct {
+		name     string
+		addr     net.Addr
+		wantHost string
+		wantVer  int
+	}{
+		{"tcp4", &net.TCPAddr{IP: net.ParseIP("203.0.113.7"), Port: 443}, "203.0.113.7", 4},
+		{"tcp6", &net.TCPAddr{IP: net.ParseIP("2001:db8::1"), Port: 80}, "2001:db8::1", 6},
+		{"unix", unixAddr, "", 0},
+		{"nil", nil, "", 0},
+	}
+	for _, tc := range cases {
+		host, ver := clientIP(tc.addr)
+		if host != tc.wantHost || ver != tc.wantVer {
+			t.Errorf("clientIP(%s) = (%q, %d), want (%q, %d)", tc.name, host, ver, tc.wantHost, tc.wantVer)
+		}
+	}
 }
 
 func TestPing(t *testing.T) {
