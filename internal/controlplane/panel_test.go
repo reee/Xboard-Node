@@ -15,7 +15,7 @@ func TestPanelControlPlaneInitialRejectsInvalidCustomOutbounds(t *testing.T) {
 	server := newPanelTestServer(`{"protocol":"shadowsocks","server_port":8388,"custom_outbounds":[{"tag":"proxy","protocol":"socks","proxy_tag":"missing","settings":{"server":"2.2.2.2","server_port":1080}}]}`)
 	defer server.Close()
 
-	cp := NewPanelControlPlane(config.PanelConfig{URL: server.URL, Token: "token", NodeID: 1}, config.WSConfig{}, config.KernelConfig{Type: "singbox"})
+	cp := NewPanelControlPlane(config.PanelConfig{URL: server.URL, Token: "token", NodeID: 1}, config.WSConfig{}, config.KernelConfig{Type: "xray"})
 	_, err := cp.Initial(context.Background(), nil, nil, nil)
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -29,7 +29,7 @@ func TestPanelControlPlanePollRejectsInvalidCustomOutbounds(t *testing.T) {
 	server := newPanelTestServer(`{"protocol":"shadowsocks","server_port":8388,"custom_outbounds":[{"tag":"proxy","protocol":"socks","proxy_tag":"missing","settings":{"server":"2.2.2.2","server_port":1080}}]}`)
 	defer server.Close()
 
-	cp := NewPanelControlPlane(config.PanelConfig{URL: server.URL, Token: "token", NodeID: 1}, config.WSConfig{}, config.KernelConfig{Type: "singbox"})
+	cp := NewPanelControlPlane(config.PanelConfig{URL: server.URL, Token: "token", NodeID: 1}, config.WSConfig{}, config.KernelConfig{Type: "xray"})
 	_, err := cp.Poll(context.Background())
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -49,7 +49,7 @@ func TestTranslateWSEventRejectsInvalidCustomOutbounds(t *testing.T) {
 				{Tag: "proxy", Protocol: "socks", ProxyTag: "missing", Settings: map[string]any{"server": "2.2.2.2", "server_port": 1080}},
 			},
 		},
-	}, config.KernelConfig{Type: "singbox"})
+	}, config.KernelConfig{Type: "xray"})
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -75,7 +75,7 @@ func newPanelTestServer(configBody string) *httptest.Server {
 	return httptest.NewServer(mux)
 }
 
-func TestTranslateWSEventRejectsUnsupportedProtocolForKernel(t *testing.T) {
+func TestTranslateWSEventRejectsProtocolUnsupportedByXray(t *testing.T) {
 	_, err := TranslateWSEvent(panelapi.WSEvent{
 		Type: panelapi.WSEventSyncConfig,
 		Config: &panelapi.NodeConfig{
@@ -89,7 +89,7 @@ func TestTranslateWSEventRejectsUnsupportedProtocolForKernel(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), `translate node config: validate custom outbounds: custom_outbounds[0].protocol "hysteria2" is not supported by kernel "xray"`) {
+	if !strings.Contains(err.Error(), `translate node config: validate custom outbounds: custom_outbounds[0].protocol "hysteria2" is not supported by the xray kernel`) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

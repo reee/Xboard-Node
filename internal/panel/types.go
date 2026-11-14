@@ -94,7 +94,7 @@ type NodeConfig struct {
 	Routes          []RouteRule            `json:"routes"`
 
 	// Kernel settings (Xboard extension)
-	KernelType       string            `json:"kernel_type,omitempty"`      // "singbox" or "xray"
+	KernelType       string            `json:"kernel_type,omitempty"`      // Deprecated: kept for wire compatibility only; ignored (xray is the only kernel), used for the one-time deprecation warning.
 	KernelLogLevel   string            `json:"kernel_log_level,omitempty"` // "info", "warn", etc.
 	CustomOutbounds  []OutboundConfig  `json:"custom_outbounds,omitempty"`
 	CustomRoutes     []map[string]any  `json:"custom_routes,omitempty"`

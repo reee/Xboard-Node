@@ -10,6 +10,8 @@ type NodeSpec struct {
 	NetworkSettings map[string]any
 	Routes          []RouteRule
 
+	// Deprecated: kept for wire compatibility only; the value is ignored (xray
+	// is the only kernel) and only used for the one-time deprecation warning.
 	KernelType       string
 	KernelLogLevel   string
 	CustomOutbounds  []OutboundConfig

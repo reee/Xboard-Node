@@ -1,47 +1,23 @@
 package model
 
-func OutboundSupportMatrix() map[string]KernelOutboundSupport {
-	return map[string]KernelOutboundSupport{
-		"xray": {
-			Protocols: []string{
-				"vmess",
-				"vless",
-				"trojan",
-				"shadowsocks",
-				"socks",
-				"http",
-				"wireguard",
-			},
-			Features: []string{
-				"tag",
-				"protocol",
-				"settings",
-				"proxy_tag",
-			},
-		},
-		"singbox": {
-			Protocols: []string{
-				"vmess",
-				"vless",
-				"trojan",
-				"shadowsocks",
-				"socks",
-				"http",
-				"wireguard",
-				"tuic",
-				"hysteria2",
-				"anytls",
-				"naive",
-				"mieru",
-			},
-			Features: []string{
-				"tag",
-				"protocol",
-				"settings",
-				"proxy_tag",
-			},
-		},
-	}
+// xrayOutboundSupport lists the outbound protocols and features supported by
+// the xray kernel, the only kernel.
+var xrayOutboundSupport = KernelOutboundSupport{
+	Protocols: []string{
+		"vmess",
+		"vless",
+		"trojan",
+		"shadowsocks",
+		"socks",
+		"http",
+		"wireguard",
+	},
+	Features: []string{
+		"tag",
+		"protocol",
+		"settings",
+		"proxy_tag",
+	},
 }
 
 type KernelOutboundSupport struct {

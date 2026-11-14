@@ -93,7 +93,7 @@ func NodeSpecFromPanel(nc *panel.NodeConfig) *NodeSpec {
 		Network:             nc.Network,
 		NetworkSettings:     cloneAnyMap(nc.NetworkSettings),
 		Routes:              routes,
-		KernelType:          nc.KernelType,
+		KernelType:          nc.KernelType, // Deprecated: legacy wire-compat value, used only for the one-time warning
 		KernelLogLevel:      nc.KernelLogLevel,
 		CustomOutbounds:     outbounds,
 		CustomRoutes:        cloneMapSlice(nc.CustomRoutes),
@@ -232,7 +232,7 @@ func (n *NodeSpec) ToPanel() *panel.NodeConfig {
 		Network:             n.Network,
 		NetworkSettings:     cloneAnyMap(n.NetworkSettings),
 		Routes:              routes,
-		KernelType:          n.KernelType,
+		KernelType:          n.KernelType, // Deprecated: legacy wire-compat value, used only for the one-time warning
 		KernelLogLevel:      n.KernelLogLevel,
 		CustomOutbounds:     outbounds,
 		CustomRoutes:        cloneMapSlice(n.CustomRoutes),

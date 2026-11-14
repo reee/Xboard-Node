@@ -53,12 +53,9 @@
 
 ## Kernel Compatibility
 
-| Feature | Xray | Sing-box |
-|---------|------|----------|
-| All match conditions | ✅ | ✅ |
-| direct / block / route | ✅ | ✅ |
+All features below run on the embedded `xray-core` kernel: every match condition and the `direct` / `block` / `route` actions are supported.
 
 ## Best Practices
 
-- **Prefer** `custom_route_rules`: cross-kernel compatible, panel-managed
+- **Prefer** `custom_route_rules`: panel-managed
 - **Use** `custom_routes` only: when native features are needed (e.g., load balancing)

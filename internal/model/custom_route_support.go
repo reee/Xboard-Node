@@ -1,32 +1,18 @@
 package model
 
-func RouteSupportMatrix() map[string]KernelRouteSupport {
-	return map[string]KernelRouteSupport{
-		"xray": {
-			Matchers: []string{
-				"domains",
-				"domain_suffixes",
-				"ip_cidrs",
-				"ports",
-				"networks",
-				"source_cidrs",
-				"source_ports",
-			},
-			Actions: []string{"block", "direct", "route"},
-		},
-		"singbox": {
-			Matchers: []string{
-				"domains",
-				"domain_suffixes",
-				"ip_cidrs",
-				"ports",
-				"networks",
-				"source_cidrs",
-				"source_ports",
-			},
-			Actions: []string{"block", "direct", "route"},
-		},
-	}
+// xrayRouteSupport lists the route matchers and actions supported by the xray
+// kernel, the only kernel.
+var xrayRouteSupport = KernelRouteSupport{
+	Matchers: []string{
+		"domains",
+		"domain_suffixes",
+		"ip_cidrs",
+		"ports",
+		"networks",
+		"source_cidrs",
+		"source_ports",
+	},
+	Actions: []string{"block", "direct", "route"},
 }
 
 type KernelRouteSupport struct {

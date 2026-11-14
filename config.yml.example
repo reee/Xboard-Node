@@ -8,8 +8,7 @@
 #   node_id: 1
 
 # ── Multiple instances ──
-# kernel:
-#   type: "singbox"
+# xray is the only supported kernel; kernel.type is deprecated and ignored.
 # log:
 #   level: "info"
 # instances:

@@ -1,16 +1,20 @@
 # xboard-node
 
-Node backend for [Xboard](https://github.com/cedar2025/Xboard). Supports `sing-box` / `xray-core` dual kernels.
+Node backend for [Xboard](https://github.com/cedar2025/Xboard). Embeds `xray-core` as its only kernel.
 
 > **Disclaimer**: This project is for educational and learning purposes only.
 
 ## Features
 
-- Protocols: V2Ray family, Trojan, Shadowsocks, Hysteria2, TUIC, AnyTLS
+- Protocols: VMess, VLESS, Trojan, Shadowsocks, Hysteria2
 - Sync: WebSocket push + REST polling dual channel
 - User controls: speed limit, device limit, alive-IP tracking, hot update
 - Deploy modes: node mode, machine mode, standalone mode
 - Multi-instance: single process binding multiple panels / nodes
+
+## Migration / compatibility
+
+`xray-core` is the only embedded kernel. Legacy `kernel.type`, `KERNEL_TYPE`, panel `kernel_type`, and `--kernel` values are accepted but ignored and normalized to xray (one warning per legacy entry point). Sing-box-only protocols (TUIC, AnyTLS, naive, mieru) are no longer supported.
 
 ## Install
 

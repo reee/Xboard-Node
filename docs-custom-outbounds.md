@@ -25,20 +25,15 @@
 
 ## Supported Protocols
 
-| Protocol | Xray | Sing-box |
-|----------|------|----------|
-| vmess | ✅ | ✅ |
-| vless | ✅ | ✅ |
-| trojan | ✅ | ✅ |
-| shadowsocks | ✅ | ✅ |
-| socks | ✅ | ✅ |
-| http | ✅ | ✅ |
-| wireguard | ✅ | ✅ |
-| tuic | ❌ | ✅ |
-| hysteria2 | ❌ | ✅ |
-| anytls | ❌ | ✅ |
-| naive | ❌ | ✅ |
-| mieru | ❌ | ✅ |
+| Protocol | Xray |
+|----------|------|
+| vmess | ✅ |
+| vless | ✅ |
+| trojan | ✅ |
+| shadowsocks | ✅ |
+| socks | ✅ |
+| http | ✅ |
+| wireguard | ✅ |
 
 ## Core Fields
 
@@ -51,5 +46,5 @@
 
 ## Best Practices
 
-- **Prefer** `custom_outbounds`: panel-managed, cross-kernel compatible
+- **Prefer** `custom_outbounds`: panel-managed
 - **Use** `kernel.custom_outbound` only: when native fields are needed

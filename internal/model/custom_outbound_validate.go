@@ -6,25 +6,14 @@ import (
 	"strings"
 )
 
-func ValidateCustomOutbounds(outbounds []OutboundConfig) error {
-	return ValidateCustomOutboundsForKernel(outbounds, "", nil)
-}
-
-func ValidateCustomOutboundsForKernel(outbounds []OutboundConfig, kernelType string, additionalTags []string) error {
+func ValidateCustomOutbounds(outbounds []OutboundConfig, additionalTags []string) error {
 	if len(outbounds) == 0 {
 		return nil
 	}
 
-	kernelType = strings.ToLower(strings.TrimSpace(kernelType))
-	allowedProtocols := map[string]struct{}{}
-	if kernelType != "" {
-		support, ok := OutboundSupportMatrix()[kernelType]
-		if !ok {
-			return fmt.Errorf("unsupported kernel type %q", kernelType)
-		}
-		for _, protocol := range support.Protocols {
-			allowedProtocols[strings.ToLower(protocol)] = struct{}{}
-		}
+	allowedProtocols := make(map[string]struct{}, len(xrayOutboundSupport.Protocols))
+	for _, protocol := range xrayOutboundSupport.Protocols {
+		allowedProtocols[strings.ToLower(protocol)] = struct{}{}
 	}
 
 	seen := make(map[string]struct{}, len(outbounds))
@@ -47,10 +36,8 @@ func ValidateCustomOutboundsForKernel(outbounds []OutboundConfig, kernelType str
 		if protocol == "" {
 			return fmt.Errorf("custom_outbounds[%d].protocol is required", i)
 		}
-		if kernelType != "" {
-			if _, ok := allowedProtocols[protocol]; !ok {
-				return fmt.Errorf("custom_outbounds[%d].protocol %q is not supported by kernel %q", i, outbound.Protocol, kernelType)
-			}
+		if _, ok := allowedProtocols[protocol]; !ok {
+			return fmt.Errorf("custom_outbounds[%d].protocol %q is not supported by the xray kernel", i, outbound.Protocol)
 		}
 		if err := validateOutboundSettings(i, outbound.Settings); err != nil {
 			return err

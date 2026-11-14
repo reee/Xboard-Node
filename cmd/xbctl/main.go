@@ -206,8 +206,8 @@ func printUsage() {
   xbctl config health-port [--config PATH]
   xbctl service status|start|stop|restart|enable|disable|logs
   xbctl health
-  xbctl bind add-node --panel-url URL --token TOKEN --node-id ID [--node-type TYPE] [--kernel singbox|xray]
-  xbctl bind add-machine --panel-url URL --token TOKEN --machine-id ID [--kernel singbox|xray]
+  xbctl bind add-node --panel-url URL --token TOKEN --node-id ID [--node-type TYPE] [--kernel xray]  (deprecated, ignored)
+  xbctl bind add-machine --panel-url URL --token TOKEN --machine-id ID [--kernel xray]  (deprecated, ignored)
   xbctl bind remove <instance-id>
   xbctl bind remove-node --panel URL --node-id ID
   xbctl bind remove-machine --panel URL --machine-id ID
@@ -1319,12 +1319,16 @@ func runConfigInit(args []string) error {
 	if mode == "machine" && machineID <= 0 {
 		return errors.New("--machine-id is required for machine mode")
 	}
+	if kernelType != "" && !strings.EqualFold(kernelType, "xray") {
+		fmt.Fprintf(os.Stderr, "warning: --kernel %q is deprecated and ignored: xray is the only supported kernel\n", kernelType)
+	}
 
-	// Build the new instance.
+	// Build the new instance. xray is the only supported kernel; the --kernel
+	// flag is accepted for compatibility but the value is ignored.
 	inst := config.Config{
 		Panel: config.PanelConfig{URL: panelURL},
 		Kernel: config.KernelConfig{
-			Type:     kernelType,
+			Type:     "xray",
 			LogLevel: "warn",
 		},
 		Log:        config.LogConfig{Level: "info", Output: "stdout"},

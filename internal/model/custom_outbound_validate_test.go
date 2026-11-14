@@ -9,7 +9,6 @@ func TestValidateCustomOutbounds(t *testing.T) {
 	tests := []struct {
 		name      string
 		outbounds []OutboundConfig
-		kernel    string
 		wantErr   string
 	}{
 		{
@@ -18,12 +17,10 @@ func TestValidateCustomOutbounds(t *testing.T) {
 				{Tag: "warp", Protocol: "wireguard", Settings: map[string]any{"server": "1.1.1.1", "server_port": 2408, "private_key": "pk"}},
 				{Tag: "proxy", Protocol: "socks", ProxyTag: "warp", Settings: map[string]any{"server": "2.2.2.2", "server_port": 1080}},
 			},
-			kernel: "singbox",
 		},
 		{
 			name:      "valid native vmess settings preserved",
 			outbounds: []OutboundConfig{{Tag: "vmess-native", Protocol: "vmess", Settings: map[string]any{"vnext": []any{map[string]any{"address": "1.1.1.1", "port": 443}}}}},
-			kernel:    "xray",
 		},
 		{
 			name:      "missing tag",
@@ -58,10 +55,14 @@ func TestValidateCustomOutbounds(t *testing.T) {
 			outbounds: []OutboundConfig{{Tag: "proxy", Protocol: "socks", ProxyTag: "direct", Settings: map[string]any{"server": "2.2.2.2", "server_port": 1080}}},
 		},
 		{
-			name:      "unsupported protocol for kernel",
+			name:      "unsupported protocol for xray",
 			outbounds: []OutboundConfig{{Tag: "hy2", Protocol: "hysteria2", Settings: map[string]any{"server": "2.2.2.2", "server_port": 8443}}},
-			kernel:    "xray",
-			wantErr:   `custom_outbounds[0].protocol "hysteria2" is not supported by kernel "xray"`,
+			wantErr:   `custom_outbounds[0].protocol "hysteria2" is not supported by the xray kernel`,
+		},
+		{
+			name:      "tuic rejected by xray",
+			outbounds: []OutboundConfig{{Tag: "tuic", Protocol: "tuic", Settings: map[string]any{"server": "2.2.2.2", "server_port": 443}}},
+			wantErr:   `custom_outbounds[0].protocol "tuic" is not supported by the xray kernel`,
 		},
 		{
 			name:      "missing settings",
@@ -92,7 +93,7 @@ func TestValidateCustomOutbounds(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			err := ValidateCustomOutboundsForKernel(tc.outbounds, tc.kernel, nil)
+			err := ValidateCustomOutbounds(tc.outbounds, nil)
 			if tc.wantErr == "" && err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}

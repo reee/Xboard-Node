@@ -21,7 +21,7 @@ func TestNodeSpecFromPanelValidated(t *testing.T) {
 				Action: panel.RouteAction{Type: "route", Target: "proxy"},
 				Match:  panel.RouteMatch{DomainSuffixes: []string{"example.com"}},
 			}},
-		}, config.KernelConfig{Type: "singbox"})
+		}, config.KernelConfig{Type: "xray"})
 		if err != nil {
 			t.Fatalf("NodeSpecFromPanelValidated: %v", err)
 		}
@@ -37,7 +37,7 @@ func TestNodeSpecFromPanelValidated(t *testing.T) {
 			CustomOutbounds: []panel.OutboundConfig{{
 				Tag: "proxy", Protocol: "socks", ProxyTag: "missing", Settings: map[string]any{"server": "2.2.2.2", "server_port": 1080},
 			}},
-		}, config.KernelConfig{Type: "singbox"})
+		}, config.KernelConfig{Type: "xray"})
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
@@ -46,7 +46,7 @@ func TestNodeSpecFromPanelValidated(t *testing.T) {
 		}
 	})
 
-	t.Run("reject unsupported protocol for kernel", func(t *testing.T) {
+	t.Run("reject protocol unsupported by xray", func(t *testing.T) {
 		_, err := NodeSpecFromPanelValidated(&panel.NodeConfig{
 			Protocol:   "shadowsocks",
 			ServerPort: 8388,
@@ -57,7 +57,7 @@ func TestNodeSpecFromPanelValidated(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		if !strings.Contains(err.Error(), `protocol "hysteria2" is not supported by kernel "xray"`) {
+		if !strings.Contains(err.Error(), `protocol "hysteria2" is not supported by the xray kernel`) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
@@ -73,7 +73,7 @@ func TestNodeSpecFromPanelValidated(t *testing.T) {
 				Action: panel.RouteAction{Type: "route", Target: "missing"},
 				Match:  panel.RouteMatch{DomainSuffixes: []string{"example.com"}},
 			}},
-		}, config.KernelConfig{Type: "singbox"})
+		}, config.KernelConfig{Type: "xray"})
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}

@@ -46,7 +46,8 @@ log:
 	if cfg.Panel.NodeType != "v2ray" {
 		t.Errorf("node_type: got %q", cfg.Panel.NodeType)
 	}
-	if cfg.Kernel.Type != "singbox" {
+	// Legacy "singbox" value above is accepted and normalized to xray.
+	if cfg.Kernel.Type != "xray" {
 		t.Errorf("kernel.type: got %q", cfg.Kernel.Type)
 	}
 	if cfg.Log.Level != "debug" {
@@ -65,8 +66,8 @@ panel:
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if cfg.Kernel.Type != "singbox" {
-		t.Errorf("default kernel.type: got %q, want singbox", cfg.Kernel.Type)
+	if cfg.Kernel.Type != "xray" {
+		t.Errorf("default kernel.type: got %q, want xray", cfg.Kernel.Type)
 	}
 	// config_dir should default to the directory containing the config file.
 	expectedDir := filepath.Dir(path)
@@ -141,18 +142,45 @@ panel:
 	}
 }
 
-func TestLoad_InvalidKernelType(t *testing.T) {
-	path := writeTemp(t, `
+func TestLoad_LegacyKernelTypeNormalized(t *testing.T) {
+	// Legacy/unknown kernel.type values are accepted and normalized to xray,
+	// never a startup error.
+	for _, legacy := range []string{"singbox", "sing-box", "v2ray"} {
+		t.Run(legacy, func(t *testing.T) {
+			path := writeTemp(t, fmt.Sprintf(`
 panel:
   url: "https://example.com"
   token: "tok"
   node_id: 1
 kernel:
-  type: "invalid"
+  type: %q
+`, legacy))
+			cfg, err := Load(path)
+			if err != nil {
+				t.Fatalf("Load(%q): %v", legacy, err)
+			}
+			if cfg.Kernel.Type != "xray" {
+				t.Errorf("kernel.type for %q: got %q, want xray", legacy, cfg.Kernel.Type)
+			}
+		})
+	}
+}
+
+func TestLoad_LegacyKernelTypeFromEnv(t *testing.T) {
+	// A legacy KERNEL_TYPE env value is accepted and normalized to xray.
+	path := writeTemp(t, `
+panel:
+  url: "https://example.com"
+  token: "tok"
+  node_id: 1
 `)
-	_, err := Load(path)
-	if err == nil {
-		t.Fatal("expected error for invalid kernel type")
+	t.Setenv("KERNEL_TYPE", "singbox")
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Kernel.Type != "xray" {
+		t.Errorf("kernel.type: got %q, want xray", cfg.Kernel.Type)
 	}
 }
 
@@ -319,14 +347,13 @@ standalone:
     protocol: "trojan"
     server_port: 443
 kernel:
-  type: singbox
+  type: xray
 `)
 	_, err := Load(path)
 	if err == nil {
 		t.Fatal("expected error for standalone mode without users")
 	}
 }
-
 
 func TestLoadRoot_LegacyConfigNormalizesToSingleInstance(t *testing.T) {
 	path := writeTemp(t, `
@@ -362,14 +389,14 @@ instances:
       token_env: "PANEL_A_TOKEN"
       node_id: 1
     kernel:
-      type: singbox
+      type: xray
   - panel:
       url: "https://panel-b.example.com"
     machine:
       machine_id: 2
       token_env: "PANEL_B_MACHINE_TOKEN"
     kernel:
-      type: singbox
+      type: xray
 `)
 	t.Setenv("PANEL_A_TOKEN", "token-a")
 	t.Setenv("PANEL_B_MACHINE_TOKEN", "token-b")

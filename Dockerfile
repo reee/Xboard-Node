@@ -13,10 +13,9 @@ COPY . .
 RUN CGO_ENABLED=0 go build -ldflags "-s -w \
     -X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo dev) \
     -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    -tags "with_quic with_utls with_wireguard with_clash_api" \
     -o xboard-node ./cmd/xboard-node
 
-# Runtime stage — sing-box & xray-core are embedded as Go libraries
+# Runtime stage — xray-core is embedded as a Go library (the only kernel)
 FROM alpine:3.20
 
 RUN apk add --no-cache ca-certificates tzdata
@@ -40,7 +39,7 @@ WORKDIR /etc/xboard-node
 #   apiKey   / API_KEY     → server token
 #   nodeID   / NODE_ID     → node ID
 #   nodeType / NODE_TYPE   → node type (optional)
-#   kernel   / KERNEL_TYPE → singbox (default) or xray
+#   kernel   / KERNEL_TYPE → xray (the only embedded kernel)
 #   domain   / DOMAIN      → TLS domain (enables auto_tls)
 #   certFile / CERT_FILE   → TLS cert path
 #   keyFile  / KEY_FILE    → TLS key path

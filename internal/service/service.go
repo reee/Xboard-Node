@@ -19,7 +19,6 @@ import (
 	"github.com/cedar2025/xboard-node/internal/config"
 	"github.com/cedar2025/xboard-node/internal/controlplane"
 	"github.com/cedar2025/xboard-node/internal/kernel"
-	"github.com/cedar2025/xboard-node/internal/kernel/singbox"
 	"github.com/cedar2025/xboard-node/internal/kernel/xray"
 	"github.com/cedar2025/xboard-node/internal/limiter"
 	"github.com/cedar2025/xboard-node/internal/model"
@@ -139,16 +138,7 @@ func NewWithControlPlane(cfg *config.Config, cp controlplane.ControlPlane) *Serv
 func newService(cfg *config.Config, cp controlplane.ControlPlane) *Service {
 	certMgr := cert.NewManager(cfg.Cert)
 
-	var k kernel.Kernel
-	switch cfg.Kernel.Type {
-	case "singbox":
-		k = singbox.New(cfg.Kernel)
-	case "xray":
-		k = xray.New(cfg.Kernel)
-	default:
-		nlog.Core().Warn("unsupported kernel type, defaulting to sing-box", "type", cfg.Kernel.Type)
-		k = singbox.New(cfg.Kernel)
-	}
+	k := xray.New(cfg.Kernel)
 
 	l := limiter.New()
 	st := limiter.NewSpeedTracker(l)
@@ -288,7 +278,7 @@ func (s *Service) initialSetup(ctx context.Context) error {
 		}
 		return fmt.Errorf("initial config is nil")
 	}
-	if err := validateNodeRuntime(s.cfg, s.kernel.Protocols(), bootstrap.Config, s.cert.TLSCert()); err != nil {
+	if err := validateNodeRuntime(s.kernel.Protocols(), bootstrap.Config, s.cert.TLSCert()); err != nil {
 		return err
 	}
 
@@ -543,7 +533,7 @@ func (s *Service) handleWSEvent(ctx context.Context, event controlplane.Event) {
 		if newConfigHash == s.lastConfigHash {
 			return
 		}
-		if err := validateNodeRuntime(s.cfg, s.kernel.Protocols(), event.Config, s.cert.TLSCert()); err != nil {
+		if err := validateNodeRuntime(s.kernel.Protocols(), event.Config, s.cert.TLSCert()); err != nil {
 			nlog.Core().Warn("ws config validation failed, ignoring update", "error", err)
 			return
 		}
@@ -652,7 +642,7 @@ func (s *Service) applyPullResult(ctx context.Context, result pullResult) {
 	}
 
 	if result.config != nil {
-		if err := validateNodeRuntime(s.cfg, s.kernel.Protocols(), result.config, s.cert.TLSCert()); err != nil {
+		if err := validateNodeRuntime(s.kernel.Protocols(), result.config, s.cert.TLSCert()); err != nil {
 			nlog.Core().Warn("runtime config validation failed", "error", err)
 			result.config = nil
 		} else {
@@ -1151,14 +1141,14 @@ func (s *Service) reportDevices() {
 
 // ─── Runtime validation ─────────────────────────────────────────────────
 
-func validateNodeRuntime(cfg *config.Config, kcfgSupported []string, spec *model.NodeSpec, tls kernel.TLSCert) error {
+func validateNodeRuntime(kcfgSupported []string, spec *model.NodeSpec, tls kernel.TLSCert) error {
 	if spec == nil {
 		return fmt.Errorf("node spec is nil")
 	}
 	if !containsString(kcfgSupported, spec.Protocol) {
-		return fmt.Errorf("protocol %q is not supported by kernel %q", spec.Protocol, cfg.Kernel.Type)
+		return fmt.Errorf("protocol %q is not supported by the xray kernel", spec.Protocol)
 	}
-	if err := validateTLSRequirements(spec, tls, cfgKernelType(cfg)); err != nil {
+	if err := validateTLSRequirements(spec, tls); err != nil {
 		return err
 	}
 	if err := validateRuntimeCertConfig(spec); err != nil {
@@ -1167,7 +1157,7 @@ func validateNodeRuntime(cfg *config.Config, kcfgSupported []string, spec *model
 	return nil
 }
 
-func validateTLSRequirements(spec *model.NodeSpec, tls kernel.TLSCert, kernelType string) error {
+func validateTLSRequirements(spec *model.NodeSpec, tls kernel.TLSCert) error {
 	needsCert := false
 	switch spec.Protocol {
 	case "hysteria", "hysteria2", "tuic", "anytls":
@@ -1181,7 +1171,7 @@ func validateTLSRequirements(spec *model.NodeSpec, tls kernel.TLSCert, kernelTyp
 		return fmt.Errorf("protocol %q requires TLS certificate files", spec.Protocol)
 	}
 	if spec.TLS == 2 {
-		if err := validateRealityRequirements(spec, kernelType); err != nil {
+		if err := validateRealityRequirements(spec); err != nil {
 			return err
 		}
 	}
@@ -1230,7 +1220,7 @@ func validateRuntimeCertConfig(spec *model.NodeSpec) error {
 	return nil
 }
 
-func validateRealityRequirements(spec *model.NodeSpec, _ string) error {
+func validateRealityRequirements(spec *model.NodeSpec) error {
 	if spec.TLSSettings == nil {
 		return fmt.Errorf("reality tls requires tls_settings")
 	}
@@ -1244,13 +1234,6 @@ func validateRealityRequirements(spec *model.NodeSpec, _ string) error {
 		return fmt.Errorf("reality tls requires tls_settings.server_name or tls_settings.dest")
 	}
 	return nil
-}
-
-func cfgKernelType(cfg *config.Config) string {
-	if cfg == nil {
-		return ""
-	}
-	return strings.ToLower(strings.TrimSpace(cfg.Kernel.Type))
 }
 
 func containsString(items []string, target string) bool {
