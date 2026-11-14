@@ -591,10 +591,13 @@ func toMemoryUser(proto string, nc *model.NodeSpec, u model.UserSpec) (*protocol
 	case "shadowsocks":
 		if strings.HasPrefix(nc.Cipher, "2022-blake3-") {
 			// 2022-blake3 multi-user mode
-			mu.Account = &ss2022.MemoryAccount{Key: u.UUID}
+			mu.Account = &ss2022.MemoryAccount{Key: []byte(u.UUID)}
 		} else {
 			// Traditional SS — build via getCipher path
-			ct := parseCipherType(nc.Cipher)
+			ct, err := parseCipherType(nc.Cipher)
+			if err != nil {
+				return nil, err
+			}
 			cipherObj, err := (&shadowsocks.Account{CipherType: ct, Password: u.UUID}).AsAccount()
 			if err != nil {
 				return nil, fmt.Errorf("build ss account: %w", err)
@@ -610,20 +613,20 @@ func toMemoryUser(proto string, nc *model.NodeSpec, u model.UserSpec) (*protocol
 }
 
 // parseCipherType maps a cipher name string to the xray CipherType enum.
-func parseCipherType(cipher string) shadowsocks.CipherType {
+func parseCipherType(cipher string) (shadowsocks.CipherType, error) {
 	switch cipher {
 	case "aes-128-gcm":
-		return shadowsocks.CipherType_AES_128_GCM
+		return shadowsocks.CipherType_AES_128_GCM, nil
 	case "aes-256-gcm":
-		return shadowsocks.CipherType_AES_256_GCM
+		return shadowsocks.CipherType_AES_256_GCM, nil
 	case "chacha20-ietf-poly1305", "chacha20-poly1305":
-		return shadowsocks.CipherType_CHACHA20_POLY1305
+		return shadowsocks.CipherType_CHACHA20_POLY1305, nil
 	case "xchacha20-ietf-poly1305", "xchacha20-poly1305":
-		return shadowsocks.CipherType_XCHACHA20_POLY1305
+		return shadowsocks.CipherType_XCHACHA20_POLY1305, nil
 	case "none", "plain":
-		return shadowsocks.CipherType_NONE
+		return shadowsocks.CipherType_UNKNOWN, fmt.Errorf("shadowsocks cipher %q is no longer supported by xray", cipher)
 	default:
-		return shadowsocks.CipherType_AES_256_GCM
+		return shadowsocks.CipherType_AES_256_GCM, nil
 	}
 }
 
