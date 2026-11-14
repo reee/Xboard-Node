@@ -24,7 +24,8 @@
     opacity: 0.65;
     margin-bottom: 0.75rem;
   }
-  h1 { font-size: 1.4rem; margin: 0 0 1.25rem; }
+  .page-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+  h1 { font-size: 1.4rem; margin: 0; }
   .notice { font-size: 0.75rem; opacity: 0.6; margin: 0 0 1rem; }
   .card {
     border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
@@ -74,7 +75,7 @@
   .stat { text-align: center; padding: 1rem; }
   .stat .num { font-size: 1.8rem; font-weight: 600; margin: 0.25rem 0; }
   .unit { font-size: 0.75rem; opacity: 0.6; }
-  .actions { display: flex; align-items: center; gap: 0.75rem; margin-top: 1.25rem; }
+  .actions { display: flex; align-items: center; margin-top: 1.25rem; }
   #run {
     padding: 0.6rem 1.5rem;
     font-size: 1rem;
@@ -90,18 +91,33 @@
     padding: 0.3rem 0.75rem;
     border-radius: 1rem;
     border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+  }
+  #status::before {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: currentColor;
+    margin-right: 0.4rem;
+    flex: none;
   }
   #status.idle { opacity: 0.6; }
-    #status.running { color: light-dark(#b26a00, #f5b942); }
-    #status.done { color: light-dark(#187a33, #4ade80); }
-    #status.error { color: light-dark(#c0392b, #ff6b5e); }
+  #status.running { color: light-dark(#b26a00, #f5b942); }
+  #status.done { color: light-dark(#187a33, #4ade80); }
+  #status.error { color: light-dark(#c0392b, #ff6b5e); }
   footer { margin-top: 2rem; font-size: 0.75rem; opacity: 0.6; }
 </style>
 </head>
 <body>
 <main>
   <span class="brand">ENP2S</span>
-  <h1>{{TITLE}}</h1>
+  <div class="page-head">
+    <h1>{{TITLE}}</h1>
+    <span id="status" class="idle">Idle</span>
+  </div>
   <noscript><p class="notice">Connection details and the speed test require JavaScript.</p></noscript>
 
   <section class="card" aria-label="Connection">
@@ -149,7 +165,6 @@
 
   <div class="actions">
     <button id="run">Run test</button>
-    <span id="status" class="idle">Idle</span>
   </div>
 
   <footer>© 2026 ENP2S. All rights reserved.</footer>
